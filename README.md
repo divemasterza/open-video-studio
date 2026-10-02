@@ -12,6 +12,17 @@ A local-first studio for generating and comparing AI videos through OpenRouter v
 - Poll async jobs and save completed videos to a local output directory.
 - Browse jobs, gallery items, and compare 2-4 completed local videos.
 - Submit controlled batches with up to 3 selected models and up to 3 videos per model.
+- Enhance prompts with an LLM (via OpenRouter chat models) before generating — see below.
+
+## Prompt Enhancer
+
+The Generate screen includes a **Prompt enhancer** under the prompt box. It rewrites a rough idea into a production-ready video prompt covering subject, motion, camera, setting, lighting, style, and (when audio is enabled) sound.
+
+- Context-aware: it uses the current mode (text, image-to-video, start + end frame), target model(s), duration, aspect ratio, and audio toggle. In image modes it focuses on motion instead of re-describing the frame.
+- Style presets (cinematic, documentary, product ad, social/UGC, anime, 3D, surreal) plus a free-text direction field.
+- Generate 1-3 distinct variations, click **Use this** to apply one, and **Undo** to restore your original.
+- Light model-specific hints for Veo, Sora, Kling, Wan, Seedance, Hailuo, Runway, and Luma.
+- The rewriting model is configurable in Settings (default `anthropic/claude-sonnet-4.5`) and is billed to your OpenRouter key; the cost of each enhancement is shown under the results (typically well under $0.02).
 
 ## Run Locally
 
@@ -58,6 +69,8 @@ The local backend exposes:
 - `POST /api/settings/test`
 - `GET /api/models/video`
 - `POST /api/models/sync`
+- `GET /api/prompts/styles`
+- `POST /api/prompts/enhance`
 - `POST /api/assets/upload`
 - `POST /api/jobs`
 - `POST /api/batches`

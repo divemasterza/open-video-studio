@@ -11,7 +11,9 @@ import {
   RefreshCcw,
   Search,
   Settings,
+  Sparkles,
   SplitSquareHorizontal,
+  Undo2,
   Upload,
   Wand2
 } from 'lucide-react';
@@ -61,7 +63,21 @@ type SettingsState = {
   pollIntervalSeconds: number;
   timeoutMinutes: number;
   requireExpensiveConfirmation: boolean;
+  enhancerModel: string;
   hasApiKey: boolean;
+};
+
+type PromptVariant = {
+  title: string;
+  prompt: string;
+  notes: string;
+};
+
+type EnhanceResult = {
+  model: string;
+  original: string;
+  variants: PromptVariant[];
+  usage?: { cost?: number } | null;
 };
 
 type UploadedAsset = {
@@ -599,6 +615,8 @@ function GenerateView({
           />
         </label>
 
+        <PromptEnhancer form={form} setForm={setForm} disabled={busy} />
+
         {(form.mode === 'image' || form.mode === 'start_end') && (
           <div className="frame-grid">
             <FrameUpload
@@ -658,6 +676,142 @@ function GenerateView({
         </button>
       </div>
     </section>
+  );
+}
+
+const ENHANCE_STYLES: Array<[string, string]> = [
+  ['none', 'Keep my style'],
+  ['cinematic', 'Cinematic'],
+  ['documentary', 'Documentary'],
+  ['product', 'Product ad'],
+  ['social', 'Social / UGC'],
+  ['anime', 'Anime'],
+  ['animation3d', '3D animation'],
+  ['surreal', 'Surreal']
+];
+
+function PromptEnhancer({
+  form,
+  setForm,
+  disabled
+}: {
+  form: GenerateForm;
+  setForm: React.Dispatch<React.SetStateAction<GenerateForm>>;
+  disabled: boolean;
+}) {
+  const [style, setStyle] = React.useState('none');
+  const [variations, setVariations] = React.useState(2);
+  const [instructions, setInstructions] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [result, setResult] = React.useState<EnhanceResult | null>(null);
+  const [previousPrompt, setPreviousPrompt] = React.useState<string | null>(null);
+
+  const targetModel = form.batchMode ? form.batchModels.filter(Boolean).join(', ') : form.model;
+
+  async function enhance() {
+    setLoading(true);
+    setError('');
+    try {
+      const next = await api.request<EnhanceResult>('/api/prompts/enhance', {
+        method: 'POST',
+        body: JSON.stringify({
+          prompt: form.prompt,
+          variations,
+          style,
+          instructions,
+          mode: form.mode,
+          targetModel,
+          duration: form.duration,
+          aspectRatio: form.aspectRatio,
+          generateAudio: form.generateAudio
+        })
+      });
+      setResult(next);
+    } catch (err) {
+      setError(getError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function applyVariant(variant: PromptVariant) {
+    setPreviousPrompt(form.prompt);
+    setForm((current) => ({ ...current, prompt: variant.prompt }));
+  }
+
+  function undo() {
+    if (previousPrompt === null) return;
+    setForm((current) => ({ ...current, prompt: previousPrompt }));
+    setPreviousPrompt(null);
+  }
+
+  const cost = result?.usage?.cost;
+
+  return (
+    <div className="enhancer-box">
+      <div className="enhancer-header">
+        <strong><Sparkles size={16} /> Prompt enhancer</strong>
+        {previousPrompt !== null && (
+          <button className="secondary small" onClick={undo} title="Restore the prompt from before the last enhancement">
+            <Undo2 size={15} />
+            Undo
+          </button>
+        )}
+      </div>
+      <div className="enhancer-controls">
+        <label>
+          Style
+          <select value={style} onChange={(event) => setStyle(event.target.value)}>
+            {ENHANCE_STYLES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <label>
+          Variations
+          <select value={variations} onChange={(event) => setVariations(Number(event.target.value))}>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        Direction (optional)
+        <input
+          value={instructions}
+          onChange={(event) => setInstructions(event.target.value)}
+          placeholder="e.g. make it moodier, add a slow dolly-in, keep it under 80 words"
+        />
+      </label>
+      <button className="primary" onClick={enhance} disabled={disabled || loading || !form.prompt.trim()}>
+        <Sparkles size={17} />
+        {loading ? 'Enhancing...' : 'Enhance Prompt'}
+      </button>
+      <p className="control-note">
+        Tailored to {form.mode === 'text' ? 'text-to-video' : form.mode === 'image' ? 'image-to-video' : 'start + end frames'}
+        {targetModel ? ` for ${targetModel}` : ''}{form.duration ? `, ${form.duration}s` : ''}{form.generateAudio ? ', with audio' : ''}.
+      </p>
+      {error && <div className="error">{error}</div>}
+      {result && (
+        <div className="variant-list">
+          {result.variants.map((variant, index) => (
+            <article className={`variant-card ${variant.prompt === form.prompt ? 'applied' : ''}`} key={`${index}-${variant.title}`}>
+              <div className="variant-title">
+                <strong>{variant.title}</strong>
+                <button className="secondary small" onClick={() => applyVariant(variant)} disabled={variant.prompt === form.prompt}>
+                  {variant.prompt === form.prompt ? 'In use' : 'Use this'}
+                </button>
+              </div>
+              <p>{variant.prompt}</p>
+              {variant.notes && <small>{variant.notes}</small>}
+            </article>
+          ))}
+          <small className="variant-meta">
+            via {result.model}{typeof cost === 'number' ? ` · ${formatCost(cost)}` : ''}
+          </small>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -884,6 +1038,15 @@ function SettingsView({
           />
           Confirm expensive generations
         </label>
+        <label>
+          Prompt enhancer model
+          <input
+            value={local.enhancerModel}
+            onChange={(event) => setLocal((current) => ({ ...current, enhancerModel: event.target.value }))}
+            placeholder="anthropic/claude-sonnet-4.5"
+          />
+        </label>
+        <p className="note">Any OpenRouter chat model id. Used by the Enhance Prompt tool and billed to the same OpenRouter key.</p>
         <p className="note">This app is designed for local use. Do not host it publicly with your API key saved.</p>
       </div>
     </section>
