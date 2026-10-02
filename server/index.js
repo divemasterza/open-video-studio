@@ -19,6 +19,7 @@ const {
   nowIso
 } = require('./db');
 const openrouter = require('./openrouterClient');
+const promptEnhancer = require('./promptEnhancer');
 
 const app = express();
 const port = Number(process.env.PORT || 4317);
@@ -309,6 +310,20 @@ app.post('/api/models/sync', async (req, res, next) => {
     const result = await openrouter.listVideoModels(apiKey);
     saveModels(result.data || []);
     res.json({ data: listModels() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/prompts/styles', (req, res) => {
+  res.json({ data: Object.keys(promptEnhancer.STYLE_PRESETS) });
+});
+
+app.post('/api/prompts/enhance', async (req, res, next) => {
+  try {
+    const apiKey = requireApiKey();
+    const result = await promptEnhancer.enhancePrompt(apiKey, req.body || {}, getSettings().enhancerModel);
+    res.json(result);
   } catch (error) {
     next(error);
   }

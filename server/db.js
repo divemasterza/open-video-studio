@@ -107,7 +107,8 @@ function getSettings() {
     outputDir: getSetting('outputDir', outputsRoot),
     pollIntervalSeconds: getSetting('pollIntervalSeconds', 15),
     timeoutMinutes: getSetting('timeoutMinutes', 30),
-    requireExpensiveConfirmation: getSetting('requireExpensiveConfirmation', true)
+    requireExpensiveConfirmation: getSetting('requireExpensiveConfirmation', true),
+    enhancerModel: getSetting('enhancerModel', 'anthropic/claude-sonnet-4.5')
   };
 }
 
@@ -117,7 +118,8 @@ function updateSettings(partial) {
     'outputDir',
     'pollIntervalSeconds',
     'timeoutMinutes',
-    'requireExpensiveConfirmation'
+    'requireExpensiveConfirmation',
+    'enhancerModel'
   ];
 
   for (const key of allowed) {

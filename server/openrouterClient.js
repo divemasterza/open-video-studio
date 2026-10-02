@@ -52,6 +52,15 @@ async function pollVideoJob(apiKey, jobIdOrUrl) {
   return parseJsonResponse(response);
 }
 
+async function createChatCompletion(apiKey, payload) {
+  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: buildHeaders(apiKey),
+    body: JSON.stringify(payload)
+  });
+  return parseJsonResponse(response);
+}
+
 async function downloadVideo(apiKey, jobId, index = 0) {
   const response = await fetch(`${OPENROUTER_BASE_URL}/videos/${jobId}/content?index=${index}`, {
     headers: buildHeaders(apiKey, { Accept: 'video/*' })
@@ -69,5 +78,6 @@ module.exports = {
   listVideoModels,
   createVideoJob,
   pollVideoJob,
-  downloadVideo
+  downloadVideo,
+  createChatCompletion
 };
